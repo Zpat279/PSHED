@@ -209,6 +209,63 @@ $injectButton.Add_Click({
         [System.Windows.Forms.MessageBox]::Show("Vape logic placeholder", "Vape")
         # Replace this with your real code
     })
+        # ============================== DESTRUCT BUTTON =================================================================================================================================
+    $destructButton.Add_Click({
+# Define the virtual disk path and disk number (from your previous setup)
+$vdiskPath = "C:\temp\ddr.vhd"
+$diskNumber = 3  # Replace with the correct disk number from your system
+
+# Step 1: Dismount (detach) the virtual disk if attached
+$detachScript = @"
+select vdisk file='$vdiskPath'
+detach vdisk
+"@
+$detachVhdFile = "C:\temp\$(Get-Random -Minimum 10000 -Maximum 99999)"
+$detachScript | Set-Content -Path $detachVhdFile
+diskpart /s $detachVhdFile
+Remove-Item -Path $detachVhdFile -Force
+
+# Step 2: Initialize the disk (if it's not initialized already)
+$initializeDiskScript = @"
+select disk $diskNumber
+online disk
+convert mbr
+"@
+$initializeDiskFile = "C:\temp\$(Get-Random -Minimum 10000 -Maximum 99999)"
+$initializeDiskScript | Set-Content -Path $initializeDiskFile
+diskpart /s $initializeDiskFile
+Remove-Item -Path $initializeDiskFile -Force
+
+# Step 3: Create a partition if none exists and assign Z: drive letter
+$createPartitionScript = @"
+select disk $diskNumber
+create partition primary
+assign letter=Z
+"@
+$createPartitionFile = "C:\temp\$(Get-Random -Minimum 10000 -Maximum 99999)"
+$createPartitionScript | Set-Content -Path $createPartitionFile
+diskpart /s $createPartitionFile
+Remove-Item -Path $createPartitionFile -Force
+
+# Step 4: Remove the virtual disk file from the system
+Remove-Item -Path $vdiskPath -Force
+
+# Step 5: Delete shortcut files from the Recent folder
+$recentFolderPath = [Environment]::GetFolderPath("Recent")
+Get-ChildItem -Path $recentFolderPath -Filter "*.lnk" | Where-Object { 
+    $_.Name -like "javaruntime.ps1*" -or $_.Name -like "powershell*" 
+} | ForEach-Object {
+    Remove-Item -Path $_.FullName -Force -ErrorAction SilentlyContinue
+}
+
+# Output a confirmation message
+Write-Host "Destruction complete: Virtual disk, partitions, and recent files removed successfully."
+
+# Remove drive letter association from the registry (if applicable)
+Remove-ItemProperty -Path "HKLM:\SYSTEM\MountedDevices" -Name "\DosDevices\Z:" -ErrorAction SilentlyContinue
+
+# END OF DESTRUCT LOGIC =============================================================
+    })
 })
 
 # Destruct Button Click: Do nothing for now
