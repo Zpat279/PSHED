@@ -1,61 +1,6 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-# MAKE THE PARTITION --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-# Ensure the directory exists
-$vdiskPath = "C:\temp\ddr.vhd"
-$vdiskSizeMB = 2048 # Size of the virtual disk in MB (2 GB)
-
-# Step 1: Check if the virtual disk already exists and remove it if it does
-if (Test-Path -Path $vdiskPath) {
-  Remove-Item -Path $vdiskPath -Force
-}
-
-# Step 2: Create the virtual disk (expandable)
-$createVHDScript = @"
-create vdisk file=`"$vdiskPath`" maximum=$vdiskSizeMB type=expandable
-"@
-$scriptFileCreate = "C:\temp\$(Get-Random -Minimum 10000 -Maximum 99999)"
-$createVHDScript | Set-Content -Path $scriptFileCreate
-
-# Execute the diskpart command to create the virtual disk
-diskpart /s $scriptFileCreate
-
-# Step 3: Attach the virtual disk
-$attachVHDScript = @"
-select vdisk file=`"$vdiskPath`"
-attach vdisk
-"@
-$scriptFileAttach = "C:\temp\$(Get-Random -Minimum 10000 -Maximum 99999)"
-$attachVHDScript | Set-Content -Path $scriptFileAttach
-
-# Execute the diskpart command to attach the virtual disk
-diskpart /s $scriptFileAttach
-
-# Step 4: Wait for the disk to be detected by the system
-Start-Sleep -Seconds 5  # Allow a moment for the disk to be registered by the OS
-
-# Retrieve the attached disk (assuming it's the last disk created)
-$disk = Get-Disk | Sort-Object -Property Number | Select-Object -Last 1
-
-# Check if the disk is offline, and set it online if needed
-if ($disk.IsOffline -eq $true) {
-    Set-Disk -Number $disk.Number -IsOffline $false
-}
-
-# Initialize the disk if it's in raw state (uninitialized)
-if ($disk.PartitionStyle -eq 'Raw') {
-    Initialize-Disk -Number $disk.Number -PartitionStyle MBR
-}
-
-# Step 5: Create a new partition and explicitly assign drive letter Z
-$partition = New-Partition -DiskNumber $disk.Number -UseMaximumSize -DriveLetter Z
-
-# Step 6: Format the volume with FAT32 and set label
-Format-Volume -DriveLetter Z -FileSystem FAT32 -NewFileSystemLabel "VirtualDisk" -Confirm:$false
-
-# END OF MAKING PARTITION ------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Set preferences to run silently
 $ConfirmPreference = 'None'
 $ErrorActionPreference = 'SilentlyContinue'
