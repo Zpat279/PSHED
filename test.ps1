@@ -16,7 +16,7 @@ $asciiArt = @"
 "@
 
 $label = New-Object System.Windows.Forms.Label
-$label.Text = $HackEmDown by Zpat and Fax
+$label.Text = $HackEmDown
 $label.Font = New-Object System.Drawing.Font("Consolas", 20)
 $label.ForeColor = 'Yellow'
 $label.AutoSize = $true
