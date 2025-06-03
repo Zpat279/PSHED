@@ -1,6 +1,20 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
+# Hide PowerShell console window
+Add-Type -Name Win -Namespace Console -MemberDefinition @'
+    [DllImport("user32.dll")]
+    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    [DllImport("kernel32.dll")]
+    public static extern IntPtr GetConsoleWindow();
+'@
+
+$consolePtr = [Console.Win]::GetConsoleWindow()
+[Console.Win]::ShowWindow($consolePtr, 0)
+
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+
 # Create the form
 $form = New-Object System.Windows.Forms.Form
 $form.Text = 'ASCII UI'
