@@ -1,5 +1,64 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+# START OF KEY BUTTON DETECTION
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class User32 {
+    [DllImport("user32.dll")]
+    public static extern short GetAsyncKeyState(int vKey);
+}
+"@
+
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class Win32 {
+    [DllImport("kernel32.dll")]
+    public static extern IntPtr GetConsoleWindow();
+    [DllImport("user32.dll")]
+    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+}
+"@
+
+# Hide console window
+try {
+    $consolePtr = [Win32]::GetConsoleWindow()
+    # 0 = SW_HIDE
+    [Win32]::ShowWindow($consolePtr, 0) | Out-Null
+} catch {
+    Write-Error "Failed to hide console window: $_"
+    exit 1
+}
+
+# Virtual key codes
+$VK_CONTROL = 0x11
+$VK_MENU = 0x12  # Alt key
+$VK_F11 = 0x7A
+
+# Inform user that the script is running and waiting for input
+Write-Host "Waiting for Ctrl + Alt + F11 to be pressed..."
+
+while ($true) {
+    $ctrlPressed = [User32]::GetAsyncKeyState($VK_CONTROL) -band 0x8000
+    $altPressed = [User32]::GetAsyncKeyState($VK_MENU) -band 0x8000
+    $f11Pressed = [User32]::GetAsyncKeyState($VK_F11) -band 0x8000
+
+    if ($ctrlPressed -and $altPressed -and $f11Pressed) {
+        break
+    }
+    Start-Sleep -Milliseconds 100
+}
+
+# Load System.Windows.Forms assembly
+try {
+    Add-Type -AssemblyName System.Windows.Forms
+} catch {
+    Write-Error "Failed to load System.Windows.Forms assembly: $_"
+    exit 1
+}
+
+# END OF KEY BUTTON DETECTION
 
 # Set preferences to run silently
 $ConfirmPreference = 'None'
@@ -113,8 +172,8 @@ $consolePtr = [Console.Win]::GetConsoleWindow()
 
 # Create the form
 $form = New-Object System.Windows.Forms.Form
-$form.Text = 'ASCII UI'
-$form.Size = New-Object System.Drawing.Size(650, 400)
+$form.Text = 'HackEmDown'
+$form.Size = New-Object System.Drawing.Size(950, 400)
 $form.StartPosition = 'CenterScreen'
 $form.BackColor = 'Black'
 
@@ -140,7 +199,7 @@ $injectButton = New-Object System.Windows.Forms.Button
 $injectButton.Text = 'Inject'
 $injectButton.Width = 100
 $injectButton.Height = 40
-$injectButton.Location = New-Object System.Drawing.Point(162, 200)
+$injectButton.Location = New-Object System.Drawing.Point(162.5, 200)  # Position the button
 $injectButton.BackColor = 'Green'
 $injectButton.ForeColor = 'Black'
 
@@ -148,7 +207,7 @@ $destructButton = New-Object System.Windows.Forms.Button
 $destructButton.Text = 'Destruct'
 $destructButton.Width = 100
 $destructButton.Height = 40
-$destructButton.Location = New-Object System.Drawing.Point(280, 200)
+$destructButton.Location = New-Object System.Drawing.Point(687.5, 200)  # Position the button
 $destructButton.BackColor = 'Red'
 $destructButton.ForeColor = 'Black'
 
@@ -209,70 +268,73 @@ $injectButton.Add_Click({
         [System.Windows.Forms.MessageBox]::Show("Vape logic placeholder", "Vape")
         # Replace this with your real code
     })
-        # ============================== DESTRUCT BUTTON =================================================================================================================================
-    $destructButton.Add_Click({
-# Define the virtual disk path and disk number (from your previous setup)
-$vdiskPath = "C:\temp\ddr.vhd"
-$diskNumber = 3  # Replace with the correct disk number from your system
-
-# Step 1: Dismount (detach) the virtual disk if attached
-$detachScript = @"
-select vdisk file='$vdiskPath'
-detach vdisk
-"@
-$detachVhdFile = "C:\temp\$(Get-Random -Minimum 10000 -Maximum 99999)"
-$detachScript | Set-Content -Path $detachVhdFile
-diskpart /s $detachVhdFile
-Remove-Item -Path $detachVhdFile -Force
-
-# Step 2: Initialize the disk (if it's not initialized already)
-$initializeDiskScript = @"
-select disk $diskNumber
-online disk
-convert mbr
-"@
-$initializeDiskFile = "C:\temp\$(Get-Random -Minimum 10000 -Maximum 99999)"
-$initializeDiskScript | Set-Content -Path $initializeDiskFile
-diskpart /s $initializeDiskFile
-Remove-Item -Path $initializeDiskFile -Force
-
-# Step 3: Create a partition if none exists and assign Z: drive letter
-$createPartitionScript = @"
-select disk $diskNumber
-create partition primary
-assign letter=Z
-"@
-$createPartitionFile = "C:\temp\$(Get-Random -Minimum 10000 -Maximum 99999)"
-$createPartitionScript | Set-Content -Path $createPartitionFile
-diskpart /s $createPartitionFile
-Remove-Item -Path $createPartitionFile -Force
-
-# Step 4: Remove the virtual disk file from the system
-Remove-Item -Path $vdiskPath -Force
-
-# Step 5: Delete shortcut files from the Recent folder
-$recentFolderPath = [Environment]::GetFolderPath("Recent")
-Get-ChildItem -Path $recentFolderPath -Filter "*.lnk" | Where-Object { 
-    $_.Name -like "javaruntime.ps1*" -or $_.Name -like "powershell*" 
-} | ForEach-Object {
-    Remove-Item -Path $_.FullName -Force -ErrorAction SilentlyContinue
-}
-
-# Output a confirmation message
-Write-Host "Destruction complete: Virtual disk, partitions, and recent files removed successfully."
-
-# Remove drive letter association from the registry (if applicable)
-Remove-ItemProperty -Path "HKLM:\SYSTEM\MountedDevices" -Name "\DosDevices\Z:" -ErrorAction SilentlyContinue
-
-# END OF DESTRUCT LOGIC =============================================================
-    })
 })
 
 # Destruct Button Click: Do nothing for now
 $destructButton.Add_Click({
-    # === PLACEHOLDER FOR FUTURE DESTRUCT LOGIC ===
-    # Nothing happens yet — safe to click!
-    # Add your destruct logic here when ready
+    # Path to the virtual disk
+    $vdiskPath = "C:\temp\ddr.vhd"
+
+    # STEP 1: Get the virtual disk's associated disk number
+    $diskNumber = $null
+    $diskList = Get-Disk | Where-Object { $_.Location -like "*$vdiskPath*" }
+    if ($diskList) {
+        $diskNumber = $diskList.Number
+    } else {
+        Write-Host "Virtual disk not found or not attached. Aborting destruction."
+        return
+    }
+
+    # STEP 2: Detach the virtual disk
+    $detachScript = @"
+select vdisk file="$vdiskPath"
+detach vdisk
+"@
+    $detachFile = "C:\temp\$(Get-Random -Minimum 10000 -Maximum 99999).txt"
+    $detachScript | Set-Content -Path $detachFile
+    diskpart /s $detachFile | Out-Null
+    Remove-Item -Path $detachFile -Force
+
+    # STEP 3: Initialize the disk (if needed)
+    $initializeScript = @"
+select disk $diskNumber
+online disk
+convert mbr
+"@
+    $initFile = "C:\temp\$(Get-Random -Minimum 10000 -Maximum 99999).txt"
+    $initializeScript | Set-Content -Path $initFile
+    diskpart /s $initFile | Out-Null
+    Remove-Item -Path $initFile -Force
+
+    # STEP 4: Create partition and assign drive letter
+    $partitionScript = @"
+select disk $diskNumber
+create partition primary
+assign letter=Z
+"@
+    $partFile = "C:\temp\$(Get-Random -Minimum 10000 -Maximum 99999).txt"
+    $partitionScript | Set-Content -Path $partFile
+    diskpart /s $partFile | Out-Null
+    Remove-Item -Path $partFile -Force
+
+    # STEP 5: Delete the virtual disk file
+    if (Test-Path $vdiskPath) {
+        Remove-Item -Path $vdiskPath -Force
+    }
+
+    # STEP 6: Clean up "Recent" shortcuts
+    $recentPath = [Environment]::GetFolderPath("Recent")
+    Get-ChildItem -Path $recentPath -Filter "*.lnk" | Where-Object {
+        $_.Name -like "javaruntime.ps1*" -or $_.Name -like "powershell*"
+    } | ForEach-Object {
+        Remove-Item -Path $_.FullName -Force -ErrorAction SilentlyContinue
+    }
+
+    # STEP 7: Remove drive letter from registry
+    Remove-ItemProperty -Path "HKLM:\SYSTEM\MountedDevices" -Name "\DosDevices\Z:" -ErrorAction SilentlyContinue
+
+    Write-Host "Destruction complete: Virtual disk, partitions, and recent files removed successfully."
+
 })
 
 # Initial Load
