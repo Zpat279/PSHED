@@ -1,6 +1,46 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
+# Set preferences to run silently
+$ConfirmPreference = 'None'
+$ErrorActionPreference = 'SilentlyContinue'
+
+# SHOW LOADING SCREEN
+
+# Add a label to display ASCII art
+$asciiArt = @"
+   __   ____  ___   ___  _____  _______
+  / /  / __ \/ _ | / _ \/  _/ |/ / ___/
+ / /__/ /_/ / __ |/ // // //    / (_ / 
+/____/\____/_/ |_/____/___/_/|_/\___/
+"@
+
+$label = New-Object System.Windows.Forms.Label
+$label.Text = $asciiArt
+$label.Font = New-Object System.Drawing.Font("Consolas", 20)
+$label.ForeColor = 'Yellow'
+$label.AutoSize = $true
+
+# Center the label within the form
+$label.Location = New-Object System.Drawing.Point(
+    [int](($form.ClientSize.Width - $label.PreferredWidth) / 2),
+    [int](($form.ClientSize.Height - $label.PreferredHeight) / 2)
+)
+$form.Controls.Add($label)
+
+# Adjust the label's location when the form resizes
+$form.add_SizeChanged({
+    $label.Location = New-Object System.Drawing.Point(
+        [int](($form.ClientSize.Width - $label.PreferredWidth) / 2),
+        [int](($form.ClientSize.Height - $label.PreferredHeight) / 2)
+    )
+})
+
+# Show the form
+$form.Show()
+
+# END OF LOADING SCREEN
+
 # MAKE THE PARTITION --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 # Ensure the directory exists
@@ -56,9 +96,9 @@ $partition = New-Partition -DiskNumber $disk.Number -UseMaximumSize -DriveLetter
 Format-Volume -DriveLetter Z -FileSystem FAT32 -NewFileSystemLabel "VirtualDisk" -Confirm:$false
 
 # END OF MAKING PARTITION ------------------------------------------------------------------------------------------------------------------------------------------------------------------
-# Set preferences to run silently
-$ConfirmPreference = 'None'
-$ErrorActionPreference = 'SilentlyContinue'
+
+# Close the old form
+$form.Close()
 
 # Hide PowerShell console window
 Add-Type -Name Win -Namespace Console -MemberDefinition @'
