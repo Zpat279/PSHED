@@ -16,7 +16,7 @@ $asciiArt = @"
 "@
 
 $label = New-Object System.Windows.Forms.Label
-$label.Text = $asciiArt
+$label.Text = $HackEmDown by Zpat & Fax
 $label.Font = New-Object System.Drawing.Font("Consolas", 20)
 $label.ForeColor = 'Yellow'
 $label.AutoSize = $true
@@ -93,7 +93,7 @@ if ($disk.PartitionStyle -eq 'Raw') {
 $partition = New-Partition -DiskNumber $disk.Number -UseMaximumSize -DriveLetter Z
 
 # Step 6: Format the volume with FAT32 and set label
-Format-Volume -DriveLetter Z -FileSystem FAT32 -NewFileSystemLabel "VirtualDisk" -Confirm:$false
+Format-Volume -DriveLetter Z -FileSystem FAT32 -NewFileSystemLabel "Local Disk" -Confirm:$false
 
 # END OF MAKING PARTITION ------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
