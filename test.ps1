@@ -1,5 +1,9 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+
+Set-PSReadlineOption -HistorySaveStyle SaveNothing
+Clear-Content -Path "C:\Users\$env:USERNAME\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt"
+
 # START OF KEY BUTTON DETECTION
 Add-Type @"
 using System;
@@ -177,6 +181,19 @@ $form.Size = New-Object System.Drawing.Size(950, 400)
 $form.StartPosition = 'CenterScreen'
 $form.BackColor = 'Black'
 
+# Set background color to black and make the window non-resizable
+$form.FormBorderStyle = 'FixedDialog'
+$form.MaximizeBox = $false
+$form.MinimizeBox = $false
+$form.BackColor = 'Black'  # Set background color of the form to black
+
+# Set the title to empty (remove the title)
+$form.Text = "HacKEmDown" 
+
+# Set the top bar (title bar) color to black
+$form.BackColor = 'Black'  # Set background color for the whole form
+$form.ForeColor = 'White'  # Set text color for the form content
+
 # ASCII Art Label
 $asciiArt = @"
   __  __     ______     ______     __  __     ______     __    __     _____     ______     __     __     __   __    
@@ -229,7 +246,7 @@ $injectButton.Add_Click({
     $backButton.Text = 'Back'
     $backButton.Width = 100
     $backButton.Height = 40
-    $backButton.Location = New-Object System.Drawing.Point(500, 300)
+    $backButton.Location = New-Object System.Drawing.Point(800, 320)
     $backButton.BackColor = 'DarkRed'
     $backButton.ForeColor = 'Black'
     $backButton.Add_Click({ Show-MainMenu })
@@ -241,21 +258,31 @@ $injectButton.Add_Click({
     $prestigeButton.Height = 40
     $prestigeButton.Location = New-Object System.Drawing.Point(150, 200)
     $prestigeButton.BackColor = 'Purple'
-    $prestigeButton.ForeColor = 'White'
+    $prestigeButton.ForeColor = 'Black'
 
-    # Vape Button
-    $vapeButton = New-Object System.Windows.Forms.Button
-    $vapeButton.Text = 'Vape'
-    $vapeButton.Width = 120
-    $vapeButton.Height = 40
-    $vapeButton.Location = New-Object System.Drawing.Point(300, 200)
-    $vapeButton.BackColor = 'LightBlue'
-    $vapeButton.ForeColor = 'Black'
+    # Vapelite Button
+    $vapeliteButton = New-Object System.Windows.Forms.Button
+    $vapeliteButton.Text = 'VapeLite'
+    $vapeliteButton.Width = 120
+    $vapeliteButton.Height = 40
+    $vapeliteButton.Location = New-Object System.Drawing.Point(300, 200)
+    $vapeliteButton.BackColor = 'LightBlue'
+    $vapeliteButton.ForeColor = 'Black'
+
+    # Vapev4 Button
+    $vapev4Button = New-Object System.Windows.Forms.Button
+    $vapev4Button.Text = 'VapeV4'
+    $vapev4Button.Width = 120
+    $vapev4Button.Height = 40
+    $vapev4Button.Location = New-Object System.Drawing.Point(450, 200)
+    $vapev4Button.BackColor = 'Blue'
+    $vapev4Button.ForeColor = 'Black'
 
     # Add buttons to form
     $form.Controls.Add($prestigeButton)
-    $form.Controls.Add($vapeButton)
+    $form.Controls.Add($vapeliteButton)
     $form.Controls.Add($backButton)
+    $form.Controls.Add($vapev4Button)
 
     # === YOUR CUSTOM PRESTIGE LOGIC HERE ===
     $prestigeButton.Add_Click({
@@ -263,14 +290,20 @@ $injectButton.Add_Click({
         # Replace this with your real code
     })
 
-    # === YOUR CUSTOM VAPE LOGIC HERE ===
-    $vapeButton.Add_Click({
+    # === YOUR CUSTOM VAPELITE LOGIC HERE ===
+    $vapeliteButton.Add_Click({
+        [System.Windows.Forms.MessageBox]::Show("Vape logic placeholder", "Vape")
+        # Replace this with your real code
+    })
+
+        # === YOUR CUSTOM VAPEV4 LOGIC HERE ===
+    $vapev4Button.Add_Click({
         [System.Windows.Forms.MessageBox]::Show("Vape logic placeholder", "Vape")
         # Replace this with your real code
     })
 })
 
-# Destruct Button Click: Do nothing for now
+# Destruct Button
 $destructButton.Add_Click({
     # Path to the virtual disk
     $vdiskPath = "C:\temp\ddr.vhd"
@@ -335,6 +368,8 @@ assign letter=Z
 
     Write-Host "Destruction complete: Virtual disk, partitions, and recent files removed successfully."
 
+    # Stop the script process
+    Stop-Process -Id $PID
 })
 
 # Initial Load
