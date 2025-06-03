@@ -1,6 +1,65 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
+# MAKE THE PARTITION --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+# Ensure the directory exists
+$vdiskPath = "C:\temp\ddr.vhd"
+$vdiskSizeMB = 2048 # Size of the virtual disk in MB (2 GB)
+
+# Step 1: Check if the virtual disk already exists and remove it if it does
+if (Test-Path -Path $vdiskPath) {
+  Remove-Item -Path $vdiskPath -Force
+}
+
+# Step 2: Create the virtual disk (expandable)
+$createVHDScript = @"
+create vdisk file=`"$vdiskPath`" maximum=$vdiskSizeMB type=expandable
+"@
+$scriptFileCreate = "C:\temp\$(Get-Random -Minimum 10000 -Maximum 99999)"
+$createVHDScript | Set-Content -Path $scriptFileCreate
+
+# Execute the diskpart command to create the virtual disk
+diskpart /s $scriptFileCreate
+
+# Step 3: Attach the virtual disk
+$attachVHDScript = @"
+select vdisk file=`"$vdiskPath`"
+attach vdisk
+"@
+$scriptFileAttach = "C:\temp\$(Get-Random -Minimum 10000 -Maximum 99999)"
+$attachVHDScript | Set-Content -Path $scriptFileAttach
+
+# Execute the diskpart command to attach the virtual disk
+diskpart /s $scriptFileAttach
+
+# Step 4: Wait for the disk to be detected by the system
+Start-Sleep -Seconds 5  # Allow a moment for the disk to be registered by the OS
+
+# Retrieve the attached disk (assuming it's the last disk created)
+$disk = Get-Disk | Sort-Object -Property Number | Select-Object -Last 1
+
+# Check if the disk is offline, and set it online if needed
+if ($disk.IsOffline -eq $true) {
+    Set-Disk -Number $disk.Number -IsOffline $false
+}
+
+# Initialize the disk if it's in raw state (uninitialized)
+if ($disk.PartitionStyle -eq 'Raw') {
+    Initialize-Disk -Number $disk.Number -PartitionStyle MBR
+}
+
+# Step 5: Create a new partition and explicitly assign drive letter Z
+$partition = New-Partition -DiskNumber $disk.Number -UseMaximumSize -DriveLetter Z
+
+# Step 6: Format the volume with FAT32 and set label
+Format-Volume -DriveLetter Z -FileSystem FAT32 -NewFileSystemLabel "VirtualDisk" -Confirm:$false
+
+# END OF MAKING PARTITION ------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# Set preferences to run silently
+$ConfirmPreference = 'None'
+$ErrorActionPreference = 'SilentlyContinue'
+
 # Hide PowerShell console window
 Add-Type -Name Win -Namespace Console -MemberDefinition @'
     [DllImport("user32.dll")]
@@ -12,9 +71,6 @@ Add-Type -Name Win -Namespace Console -MemberDefinition @'
 $consolePtr = [Console.Win]::GetConsoleWindow()
 [Console.Win]::ShowWindow($consolePtr, 0)
 
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
-
 # Create the form
 $form = New-Object System.Windows.Forms.Form
 $form.Text = 'ASCII UI'
@@ -22,7 +78,7 @@ $form.Size = New-Object System.Drawing.Size(650, 400)
 $form.StartPosition = 'CenterScreen'
 $form.BackColor = 'Black'
 
-# Create a label to display the ASCII art
+# ASCII Art Label
 $asciiArt = @"
   __  __     ______     ______     __  __     ______     __    __     _____     ______     __     __     __   __    
  /\ \_\ \   /\  __ \   /\  ___\   /\ \/ /    /\  ___\   /\ "-./  \   /\  __-.  /\  __ \   /\ \  _ \ \   /\ "-.\ \   
@@ -39,9 +95,7 @@ $label.ForeColor = 'Yellow'
 $label.AutoSize = $true
 $label.Location = New-Object System.Drawing.Point(50, 50)
 
-$form.Controls.Add($label)
-
-# Create "Inject" Button
+# Define Main Menu Buttons
 $injectButton = New-Object System.Windows.Forms.Button
 $injectButton.Text = 'Inject'
 $injectButton.Width = 100
@@ -50,7 +104,6 @@ $injectButton.Location = New-Object System.Drawing.Point(162, 200)
 $injectButton.BackColor = 'Green'
 $injectButton.ForeColor = 'Black'
 
-# Create "Destruct" Button (missing from your original code but used in Back)
 $destructButton = New-Object System.Windows.Forms.Button
 $destructButton.Text = 'Destruct'
 $destructButton.Width = 100
@@ -59,53 +112,74 @@ $destructButton.Location = New-Object System.Drawing.Point(280, 200)
 $destructButton.BackColor = 'Red'
 $destructButton.ForeColor = 'Black'
 
-# Add the Inject button click event
+# Function to return to main menu
+function Show-MainMenu {
+    $form.Controls.Clear()
+    $form.Controls.Add($label)
+    $form.Controls.Add($injectButton)
+    $form.Controls.Add($destructButton)
+}
+
+# Inject Button Click: Show Prestige and Vape buttons
 $injectButton.Add_Click({
     $form.Controls.Clear()
     $form.Controls.Add($label)
 
-    # "Prestige" Button
-    $prestigeButton = New-Object System.Windows.Forms.Button
-    $prestigeButton.Text = 'Prestige'
-    $prestigeButton.Width = 100
-    $prestigeButton.Height = 40
-    $prestigeButton.Location = New-Object System.Drawing.Point(150, 200)
-    $prestigeButton.BackColor = 'Purple'
-    $prestigeButton.ForeColor = 'Black'
-
-    # "Vape" Button
-    $vapeButton = New-Object System.Windows.Forms.Button
-    $vapeButton.Text = 'Vape'
-    $vapeButton.Width = 100
-    $vapeButton.Height = 40
-    $vapeButton.Location = New-Object System.Drawing.Point(300, 200)
-    $vapeButton.BackColor = 'Blue'
-    $vapeButton.ForeColor = 'Black'
-
-    # "Back" Button
+    # Back Button
     $backButton = New-Object System.Windows.Forms.Button
     $backButton.Text = 'Back'
     $backButton.Width = 100
     $backButton.Height = 40
-    $backButton.Location = New-Object System.Drawing.Point(450, 200)
+    $backButton.Location = New-Object System.Drawing.Point(500, 300)
     $backButton.BackColor = 'DarkRed'
     $backButton.ForeColor = 'Black'
+    $backButton.Add_Click({ Show-MainMenu })
 
-    $backButton.Add_Click({
-        $form.Controls.Clear()
-        $form.Controls.Add($label)
-        $form.Controls.Add($injectButton)
-        $form.Controls.Add($destructButton)
-    })
+    # Prestige Button
+    $prestigeButton = New-Object System.Windows.Forms.Button
+    $prestigeButton.Text = 'Prestige'
+    $prestigeButton.Width = 120
+    $prestigeButton.Height = 40
+    $prestigeButton.Location = New-Object System.Drawing.Point(150, 200)
+    $prestigeButton.BackColor = 'Purple'
+    $prestigeButton.ForeColor = 'White'
 
+    # Vape Button
+    $vapeButton = New-Object System.Windows.Forms.Button
+    $vapeButton.Text = 'Vape'
+    $vapeButton.Width = 120
+    $vapeButton.Height = 40
+    $vapeButton.Location = New-Object System.Drawing.Point(300, 200)
+    $vapeButton.BackColor = 'LightBlue'
+    $vapeButton.ForeColor = 'Black'
+
+    # Add buttons to form
     $form.Controls.Add($prestigeButton)
     $form.Controls.Add($vapeButton)
     $form.Controls.Add($backButton)
+
+    # === YOUR CUSTOM PRESTIGE LOGIC HERE ===
+    $prestigeButton.Add_Click({
+        [System.Windows.Forms.MessageBox]::Show("Prestige logic placeholder", "Prestige")
+        # Replace this with your real code
+    })
+
+    # === YOUR CUSTOM VAPE LOGIC HERE ===
+    $vapeButton.Add_Click({
+        [System.Windows.Forms.MessageBox]::Show("Vape logic placeholder", "Vape")
+        # Replace this with your real code
+    })
 })
 
-# Add initial buttons
-$form.Controls.Add($injectButton)
-$form.Controls.Add($destructButton)
+# Destruct Button Click: Do nothing for now
+$destructButton.Add_Click({
+    # === PLACEHOLDER FOR FUTURE DESTRUCT LOGIC ===
+    # Nothing happens yet — safe to click!
+    # Add your destruct logic here when ready
+})
+
+# Initial Load
+Show-MainMenu
 
 # Run the form
 [void]$form.ShowDialog()
