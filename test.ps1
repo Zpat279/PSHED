@@ -363,10 +363,20 @@ assign letter=Z
         Remove-Item -Path $_.FullName -Force -ErrorAction SilentlyContinue
     }
 
-    # STEP 7: Remove drive letter from registry
+    # Destruct other stuff after disk is gone
     Remove-ItemProperty -Path "HKLM:\SYSTEM\MountedDevices" -Name "\DosDevices\Z:" -ErrorAction SilentlyContinue
+    Remove-Item -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows Search\VolumeInfoCache\Z:" -Recurse -Force
 
-    Write-Host "Destruction complete: Virtual disk, partitions, and recent files removed successfully."
+    # Clear Temp
+    Remove-Item -Path "C:\temp\*" -Recurse -Force
+
+          # STEP 6: Clean up "Recent" shortcuts
+    $recentPath = [Environment]::GetFolderPath("Recent")
+    Get-ChildItem -Path $recentPath -Filter "*.lnk" | Where-Object {
+        $_.Name -like "javaruntime.ps1*" -or $_.Name -like "powershell*"
+    } | ForEach-Object {
+        Remove-Item -Path $_.FullName -Force -ErrorAction SilentlyContinue
+    }
 
     # Stop the script process
     Stop-Process -Id $PID
