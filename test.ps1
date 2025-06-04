@@ -310,7 +310,6 @@ Start-Process "Z:\bitsadmin.exe"
 
         # Replace this with your real code
     })
-})
 
 # Destruct Button
 $destructButton.Add_Click({
